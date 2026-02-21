@@ -1,0 +1,116 @@
+import { GradientHeader } from '@/components/gradient-header';
+import { StatCard } from '@/components/stat-card';
+import { ThemedText } from '@/components/themed-text';
+import { AppColors } from '@/constants/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+
+const MENU_ITEMS = [
+  { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const, badge: '24' },
+  { icon: 'settings-outline' as const, title: 'System Settings', desc: 'Configure system preferences', route: '/system-settings' as const },
+  { icon: 'layers-outline' as const, title: 'Device Categories', desc: 'Manage categories & custom fields', route: '/system-settings' as const },
+  { icon: 'location-outline' as const, title: 'Locations', desc: 'Buildings, floors & rooms', route: '/system-settings' as const },
+  { icon: 'business-outline' as const, title: 'Departments', desc: 'Organizational structure', route: '/system-settings' as const },
+  { icon: 'document-text-outline' as const, title: 'Audit Trail', desc: 'View system activity logs', route: '/system-settings' as const, badge: '1.2K' },
+];
+
+const RECENT_AUDIT = [
+  { action: 'Device assigned', user: 'admin@company.com', time: '2 min ago', icon: 'swap-horizontal-outline' as const },
+  { action: 'User created', user: 'admin@company.com', time: '15 min ago', icon: 'person-add-outline' as const },
+  { action: 'Settings updated', user: 'admin@company.com', time: '1 hour ago', icon: 'settings-outline' as const },
+];
+
+export default function AdminScreen() {
+  return (
+    <View style={styles.container}>
+      <GradientHeader title="Admin Panel" subtitle="System administration" />
+
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.statsRow}>
+          <StatCard icon="people-outline" label="Users" value="156" gradient={AppColors.gradient.primary} />
+          <StatCard icon="shield-checkmark-outline" label="Active" value="142" color="#22C55E" />
+          <StatCard icon="ban-outline" label="Locked" value="3" color="#EF4444" />
+        </View>
+
+        <ThemedText style={styles.sectionTitle}>Administration</ThemedText>
+        {MENU_ITEMS.map((item, i) => (
+          <TouchableOpacity key={i} style={styles.menuCard} activeOpacity={0.7} onPress={() => router.push(item.route)}>
+            <View style={styles.menuIcon}>
+              <Ionicons name={item.icon} size={22} color={AppColors.primaryLight} />
+            </View>
+            <View style={styles.menuContent}>
+              <ThemedText style={styles.menuTitle}>{item.title}</ThemedText>
+              <ThemedText style={styles.menuDesc}>{item.desc}</ThemedText>
+            </View>
+            <View style={styles.menuRight}>
+              {item.badge && (
+                <View style={styles.menuBadge}>
+                  <ThemedText style={styles.menuBadgeText}>{item.badge}</ThemedText>
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={16} color={AppColors.text.light} />
+            </View>
+          </TouchableOpacity>
+        ))}
+
+        <ThemedText style={styles.sectionTitle}>Recent Activity</ThemedText>
+        {RECENT_AUDIT.map((a, i) => (
+          <View key={i} style={styles.auditRow}>
+            <View style={styles.auditIcon}>
+              <Ionicons name={a.icon} size={16} color={AppColors.primaryLight} />
+            </View>
+            <View style={styles.auditContent}>
+              <ThemedText style={styles.auditAction}>{a.action}</ThemedText>
+              <ThemedText style={styles.auditMeta}>{a.user}</ThemedText>
+            </View>
+            <ThemedText style={styles.auditTime}>{a.time}</ThemedText>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: AppColors.bg.primary },
+  scroll: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: AppColors.text.primary, marginBottom: 14 },
+  menuCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: AppColors.bg.card, borderRadius: 14,
+    padding: 14, marginBottom: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+  },
+  menuIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: AppColors.primaryLight + '12',
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  menuContent: { flex: 1 },
+  menuTitle: { fontSize: 15, fontWeight: '600', color: AppColors.text.primary },
+  menuDesc: { fontSize: 12, color: AppColors.text.secondary, marginTop: 2 },
+  menuRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuBadge: {
+    backgroundColor: AppColors.primaryLight + '15',
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+  },
+  menuBadgeText: { fontSize: 11, fontWeight: '600', color: AppColors.primaryLight },
+  auditRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: AppColors.bg.border,
+    gap: 12,
+  },
+  auditIcon: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: AppColors.primaryLight + '10',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  auditContent: { flex: 1 },
+  auditAction: { fontSize: 14, fontWeight: '500', color: AppColors.text.primary },
+  auditMeta: { fontSize: 12, color: AppColors.text.secondary, marginTop: 1 },
+  auditTime: { fontSize: 11, color: AppColors.text.light },
+});
