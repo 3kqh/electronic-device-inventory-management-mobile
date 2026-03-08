@@ -3,49 +3,185 @@ import { GradientHeader } from '@/components/gradient-header';
 import { SearchBar } from '@/components/search-bar';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { deviceService } from '@/services/deviceService';
+import type { Device, DeviceCategory, DeviceStatus, PaginatedResponse } from '@/types/api';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
+import { canCRUDDevices } from '@/utils/permissions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-const FILTERS = ['All', 'Available', 'Assigned', 'Maintenance', 'Retired'];
+const FILTERS = ['All', 'Available', 'Assigned', 'Maintenance', 'Retired'] as const;
 
-const DEVICES = [
-  { name: 'MacBook Pro 16"', assetTag: 'DEV-001', category: 'Laptop', status: 'assigned', assignedTo: 'John Doe' },
-  { name: 'Dell UltraSharp 27"', assetTag: 'DEV-042', category: 'Monitor', status: 'available' },
-  { name: 'iPhone 15 Pro', assetTag: 'DEV-108', category: 'Phone', status: 'in_maintenance' },
-  { name: 'ThinkPad X1 Carbon', assetTag: 'DEV-203', category: 'Laptop', status: 'assigned', assignedTo: 'Jane Smith' },
-  { name: 'iPad Pro 12.9"', assetTag: 'DEV-315', category: 'Tablet', status: 'available' },
-  { name: 'HP LaserJet Pro', assetTag: 'DEV-420', category: 'Printer', status: 'retired' },
-  { name: 'Samsung Galaxy S24', assetTag: 'DEV-501', category: 'Phone', status: 'assigned', assignedTo: 'Bob Wilson' },
-  { name: 'Logitech MX Keys', assetTag: 'DEV-612', category: 'Peripheral', status: 'available' },
-];
+const FILTER_STATUS_MAP: Record<string, DeviceStatus> = {
+  Available: 'available',
+  Assigned: 'assigned',
+  Maintenance: 'in_maintenance',
+  Retired: 'retired',
+};
+
+function getCategoryName(device: Device): string {
+  if (typeof device.categoryId === 'object' && device.categoryId !== null) {
+    return (device.categoryId as DeviceCategory).name;
+  }
+  return 'Device';
+}
 
 export default function DevicesScreen() {
+  const { user } = useAuth();
+
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch devices based on current filter and search state
+  const fetchDevices = useCallback(async (query: string, filter: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (query.trim()) {
+        const results = await deviceService.search(query.trim());
+        setDevices(results);
+        setTotalCount(results.length);
+      } else if (filter !== 'All') {
+        const status = FILTER_STATUS_MAP[filter];
+        if (status) {
+          const results = await deviceService.filter(status);
+          setDevices(results);
+          setTotalCount(results.length);
+        }
+      } else {
+        const response: PaginatedResponse<Device> = await deviceService.getAll();
+        setDevices(response.data);
+        setTotalCount(response.pagination.total);
+      }
+    } catch (err: unknown) {
+      const apiError = err as { message?: string };
+      setError(apiError?.message ?? 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchDevices('', 'All');
+  }, [fetchDevices]);
+
+  // Handle search with 300ms debounce
+  const handleSearch = useCallback(
+    (text: string) => {
+      setSearchQuery(text);
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      debounceTimer.current = setTimeout(() => {
+        fetchDevices(text, activeFilter);
+      }, 300);
+    },
+    [activeFilter, fetchDevices],
+  );
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
+  // Handle filter change
+  const handleFilterPress = useCallback(
+    (filter: string) => {
+      setActiveFilter(filter);
+      // Clear debounce and fetch immediately with new filter
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+      fetchDevices(searchQuery, filter);
+    },
+    [searchQuery, fetchDevices],
+  );
+
+  // Retry handler
+  const handleRetry = useCallback(() => {
+    fetchDevices(searchQuery, activeFilter);
+  }, [searchQuery, activeFilter, fetchDevices]);
+
+  const showFab = user ? canCRUDDevices(user.role) : false;
+  const subtitle = `${totalCount.toLocaleString()} total devices`;
+
   return (
     <View style={styles.container}>
-      <GradientHeader title="Devices" subtitle="1,247 total devices">
-        <SearchBar placeholder="Search by name, tag, serial..." />
+      <GradientHeader title="Devices" subtitle={subtitle}>
+        <SearchBar
+          placeholder="Search by name, tag, serial..."
+          value={searchQuery}
+          onChangeText={handleSearch}
+        />
       </GradientHeader>
 
       <View style={styles.filterRow}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {FILTERS.map((f, i) => (
-            <TouchableOpacity key={f} style={[styles.filterChip, i === 0 && styles.filterActive]}>
-              <ThemedText style={[styles.filterText, i === 0 && styles.filterTextActive]}>{f}</ThemedText>
+          {FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterChip, activeFilter === f && styles.filterActive]}
+              onPress={() => handleFilterPress(f)}
+            >
+              <ThemedText style={[styles.filterText, activeFilter === f && styles.filterTextActive]}>
+                {f}
+              </ThemedText>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {DEVICES.map((device, i) => (
-          <DeviceCard key={i} {...device} onPress={() => router.push('/device-details')} />
-        ))}
-      </ScrollView>
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={AppColors.primaryLight} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Ionicons name="cloud-offline-outline" size={48} color={AppColors.text.light} />
+          <ThemedText style={styles.errorText}>{isNetworkError(error) ? NETWORK_ERROR_MESSAGE : error}</ThemedText>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+            <ThemedText style={styles.retryBtnText}>Thử lại</ThemedText>
+          </TouchableOpacity>
+        </View>
+      ) : devices.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Ionicons name="search-outline" size={48} color={AppColors.text.light} />
+          <ThemedText style={styles.emptyText}>No devices found</ThemedText>
+        </View>
+      ) : (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {devices.map((device) => (
+            <DeviceCard
+              key={device._id}
+              name={device.name}
+              assetTag={device.assetTag}
+              category={getCategoryName(device)}
+              status={device.status}
+              onPress={() => router.push({ pathname: '/device-details', params: { id: device._id } })}
+            />
+          ))}
+        </ScrollView>
+      )}
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/device-form')} activeOpacity={0.8} accessibilityLabel="Add new device">
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
+      {showFab && (
+        <TouchableOpacity style={styles.fab} onPress={() => router.push('/device-form')} activeOpacity={0.8} accessibilityLabel="Add new device">
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -67,6 +203,20 @@ const styles = StyleSheet.create({
   filterTextActive: { color: '#FFFFFF' },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
+  centerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  errorText: { fontSize: 14, color: '#EF4444', textAlign: 'center' },
+  retryBtn: {
+    paddingHorizontal: 20, paddingVertical: 10,
+    backgroundColor: AppColors.primaryLight, borderRadius: 10,
+  },
+  retryBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  emptyText: { fontSize: 14, color: AppColors.text.light, textAlign: 'center' },
   fab: {
     position: 'absolute', bottom: 100, right: 20,
     width: 56, height: 56, borderRadius: 16,

@@ -1,19 +1,42 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { ApiError } from '@/services/apiClient';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = () => {
-    router.replace('/(tabs)');
+  const handleLogin = async () => {
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
+      // Navigation is handled by _layout.tsx when isAuthenticated changes
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError.message || 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -43,6 +66,7 @@ export default function LoginScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  editable={!isSubmitting}
                   accessibilityLabel="Email input"
                 />
               </View>
@@ -59,6 +83,7 @@ export default function LoginScreen() {
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
+                  editable={!isSubmitting}
                   accessibilityLabel="Password input"
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)} accessibilityLabel="Toggle password visibility">
@@ -67,14 +92,33 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            {error && (
+              <View style={styles.errorContainer} accessibilityRole="alert">
+                <Ionicons name="alert-circle-outline" size={16} color="#FCA5A5" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            )}
+
             <TouchableOpacity accessibilityRole="link">
               <Text style={styles.forgotText}>Forgot Password?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} activeOpacity={0.8} accessibilityRole="button">
+            <TouchableOpacity
+              style={[styles.loginBtn, isSubmitting && styles.loginBtnDisabled]}
+              onPress={handleLogin}
+              activeOpacity={0.8}
+              disabled={isSubmitting}
+              accessibilityRole="button"
+            >
               <LinearGradient colors={['#2563EB', '#3B82F6']} style={styles.loginGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                <Text style={styles.loginText}>Sign In</Text>
-                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                {isSubmitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.loginText}>Sign In</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -112,10 +156,18 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, color: '#FFFFFF' },
   forgotText: { fontSize: 13, color: '#93C5FD', textAlign: 'right' },
   loginBtn: { marginTop: 8, borderRadius: 14, overflow: 'hidden' },
+  loginBtnDisabled: { opacity: 0.7 },
   loginGradient: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     paddingVertical: 16, gap: 8,
   },
   loginText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  errorContainer: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)',
+  },
+  errorText: { flex: 1, fontSize: 13, color: '#FCA5A5' },
   version: { fontSize: 12, color: 'rgba(255,255,255,0.3)', textAlign: 'center', marginTop: 40 },
 });

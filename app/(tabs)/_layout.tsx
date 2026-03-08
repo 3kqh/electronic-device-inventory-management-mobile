@@ -1,9 +1,14 @@
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { canAccessAdmin } from '@/utils/permissions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 
 export default function TabLayout() {
+  const { user } = useAuth();
+  const showAdmin = user ? canAccessAdmin(user.role) : false;
+
   return (
     <Tabs
       screenOptions={{
@@ -55,6 +60,7 @@ export default function TabLayout() {
         options={{
           title: 'Admin',
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+          href: showAdmin ? '/admin' : null,
         }}
       />
     </Tabs>

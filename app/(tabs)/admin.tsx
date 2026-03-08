@@ -2,9 +2,14 @@ import { GradientHeader } from '@/components/gradient-header';
 import { StatCard } from '@/components/stat-card';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useApiData } from '@/hooks/useApiData';
+import { userService } from '@/services/userService';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
+import { canAccessAdmin } from '@/utils/permissions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const MENU_ITEMS = [
   { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const, badge: '24' },
@@ -22,15 +27,58 @@ const RECENT_AUDIT = [
 ];
 
 export default function AdminScreen() {
+  const { user } = useAuth();
+
+  // Permission check: staff cannot access admin features
+  if (!user || !canAccessAdmin(user.role)) {
+    return (
+      <View style={styles.container}>
+        <GradientHeader title="Admin Panel" subtitle="System administration" />
+        <View style={styles.deniedContainer}>
+          <View style={styles.deniedIconWrapper}>
+            <Ionicons name="lock-closed" size={48} color={AppColors.text.light} />
+          </View>
+          <ThemedText style={styles.deniedTitle}>Không đủ quyền truy cập</ThemedText>
+          <ThemedText style={styles.deniedMessage}>
+            Bạn không có quyền truy cập trang quản trị. Vui lòng liên hệ quản trị viên nếu bạn cần quyền truy cập.
+          </ThemedText>
+        </View>
+      </View>
+    );
+  }
+
+  // Fetch real user count for admin/inventory_manager
+  const { data: users, loading: usersLoading, error: usersError, refetch: refetchUsers } = useApiData(() => userService.getAll());
+
+  const totalUsers = users ? users.length : 0;
+  const activeUsers = users ? users.filter(u => u.status === 'active').length : 0;
+  const lockedUsers = users ? users.filter(u => u.status === 'inactive').length : 0;
+
   return (
     <View style={styles.container}>
       <GradientHeader title="Admin Panel" subtitle="System administration" />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statsRow}>
-          <StatCard icon="people-outline" label="Users" value="156" gradient={AppColors.gradient.primary} />
-          <StatCard icon="shield-checkmark-outline" label="Active" value="142" color="#22C55E" />
-          <StatCard icon="ban-outline" label="Locked" value="3" color="#EF4444" />
+          {usersLoading ? (
+            <View style={styles.statsLoading}>
+              <ActivityIndicator size="small" color={AppColors.primaryLight} />
+            </View>
+          ) : usersError ? (
+            <View style={styles.statsError}>
+              <Ionicons name="cloud-offline-outline" size={24} color={AppColors.text.light} />
+              <ThemedText style={styles.statsErrorText}>{isNetworkError(usersError) ? NETWORK_ERROR_MESSAGE : usersError}</ThemedText>
+              <TouchableOpacity style={styles.statsRetryBtn} onPress={refetchUsers}>
+                <ThemedText style={styles.statsRetryText}>Thử lại</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <StatCard icon="people-outline" label="Users" value={String(totalUsers)} gradient={AppColors.gradient.primary} />
+              <StatCard icon="shield-checkmark-outline" label="Active" value={String(activeUsers)} color="#22C55E" />
+              <StatCard icon="ban-outline" label="Locked" value={String(lockedUsers)} color="#EF4444" />
+            </>
+          )}
         </View>
 
         <ThemedText style={styles.sectionTitle}>Administration</ThemedText>
@@ -77,6 +125,14 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  statsLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 24 },
+  statsError: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8 },
+  statsErrorText: { fontSize: 13, color: '#EF4444', textAlign: 'center' },
+  statsRetryBtn: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    backgroundColor: AppColors.primaryLight, borderRadius: 8,
+  },
+  statsRetryText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: AppColors.text.primary, marginBottom: 14 },
   menuCard: {
     flexDirection: 'row', alignItems: 'center',
@@ -113,4 +169,23 @@ const styles = StyleSheet.create({
   auditAction: { fontSize: 14, fontWeight: '500', color: AppColors.text.primary },
   auditMeta: { fontSize: 12, color: AppColors.text.secondary, marginTop: 1 },
   auditTime: { fontSize: 11, color: AppColors.text.light },
+  // Permission denied styles
+  deniedContainer: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  deniedIconWrapper: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: AppColors.bg.input,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+  },
+  deniedTitle: {
+    fontSize: 18, fontWeight: '700', color: AppColors.text.primary,
+    marginBottom: 8, textAlign: 'center',
+  },
+  deniedMessage: {
+    fontSize: 14, color: AppColors.text.secondary,
+    textAlign: 'center', lineHeight: 20,
+  },
 });

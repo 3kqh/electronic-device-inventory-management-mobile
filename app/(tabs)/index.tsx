@@ -3,30 +3,97 @@ import { GradientHeader } from '@/components/gradient-header';
 import { StatCard } from '@/components/stat-card';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors } from '@/constants/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { useApiData } from '@/hooks/useApiData';
+import { deviceService } from '@/services/deviceService';
+import { maintenanceService } from '@/services/maintenanceService';
+import { reportService } from '@/services/reportService';
+import type { Device, DeviceCategory, DeviceStatus, MaintenanceRecord, PaginatedResponse, WarrantyAlert } from '@/types/api';
+import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-const RECENT_DEVICES = [
-  { name: 'MacBook Pro 16"', assetTag: 'DEV-001', category: 'Laptop', status: 'assigned', assignedTo: 'John Doe' },
-  { name: 'Dell Monitor 27"', assetTag: 'DEV-042', category: 'Monitor', status: 'available' },
-  { name: 'iPhone 15 Pro', assetTag: 'DEV-108', category: 'Phone', status: 'in_maintenance' },
-];
+function formatNumber(n: number): string {
+  return n >= 1000 ? n.toLocaleString() : String(n);
+}
 
-const ALERTS = [
-  { icon: 'warning-outline' as const, text: '3 warranties expiring in 7 days', color: '#F59E0B' },
-  { icon: 'build-outline' as const, text: '2 devices pending maintenance', color: '#3B82F6' },
-  { icon: 'alert-circle-outline' as const, text: '1 overdue assignment acknowledgment', color: '#EF4444' },
-];
+function getCategoryName(device: Device): string {
+  if (typeof device.categoryId === 'object' && device.categoryId !== null) {
+    return (device.categoryId as DeviceCategory).name;
+  }
+  return 'Device';
+}
 
 export default function DashboardScreen() {
+  const { user } = useAuth();
+
+  const {
+    data: devicesResponse,
+    loading: devicesLoading,
+    error: devicesError,
+    refetch: refetchDevices,
+  } = useApiData<PaginatedResponse<Device>>(() => deviceService.getAll());
+
+  const {
+    data: warrantyAlerts,
+    loading: alertsLoading,
+    error: alertsError,
+    refetch: refetchAlerts,
+  } = useApiData<WarrantyAlert[]>(() => reportService.getWarrantyAlerts());
+
+  const {
+    data: upcomingMaintenance,
+    loading: maintenanceLoading,
+    error: maintenanceError,
+    refetch: refetchMaintenance,
+  } = useApiData<MaintenanceRecord[]>(() => maintenanceService.getUpcoming());
+
+  // Calculate stats from device data
+  const devices = devicesResponse?.data ?? [];
+  const totalDevices = devicesResponse?.pagination?.total ?? 0;
+  const statusCounts = devices.reduce(
+    (acc, d) => {
+      acc[d.status] = (acc[d.status] || 0) + 1;
+      return acc;
+    },
+    {} as Record<DeviceStatus, number>,
+  );
+
+  // Build alerts list from real data
+  const alerts: Array<{ icon: 'warning-outline' | 'build-outline' | 'alert-circle-outline'; text: string; color: string }> = [];
+  if (warrantyAlerts && warrantyAlerts.length > 0) {
+    alerts.push({
+      icon: 'warning-outline',
+      text: `${warrantyAlerts.length} warranty${warrantyAlerts.length > 1 ? ' alerts' : ' alert'} expiring soon`,
+      color: '#F59E0B',
+    });
+  }
+  if (upcomingMaintenance && upcomingMaintenance.length > 0) {
+    alerts.push({
+      icon: 'build-outline',
+      text: `${upcomingMaintenance.length} upcoming maintenance${upcomingMaintenance.length > 1 ? ' tasks' : ' task'}`,
+      color: '#3B82F6',
+    });
+  }
+
+  const recentDevices = devices.slice(0, 5);
+
+  const subtitle = user
+    ? `Welcome back, ${user.firstName} (${user.role})`
+    : 'Welcome back';
+
   return (
     <View style={styles.container}>
-      <GradientHeader title="Dashboard" subtitle="Welcome back, Admin">
+      <GradientHeader title="Dashboard" subtitle={subtitle}>
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerBtn} accessibilityLabel="Notifications">
             <Ionicons name="notifications-outline" size={20} color="#fff" />
-            <View style={styles.badge}><ThemedText style={styles.badgeText}>5</ThemedText></View>
+            {alerts.length > 0 && (
+              <View style={styles.badge}>
+                <ThemedText style={styles.badgeText}>{alerts.length}</ThemedText>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} accessibilityLabel="Scan barcode">
             <Ionicons name="scan-outline" size={20} color="#fff" />
@@ -36,27 +103,61 @@ export default function DashboardScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Stats */}
-        <View style={styles.statsRow}>
-          <StatCard icon="cube-outline" label="Total Devices" value="1,247" gradient={AppColors.gradient.primary} />
-          <StatCard icon="checkmark-circle-outline" label="Available" value="342" color="#22C55E" />
-        </View>
-        <View style={styles.statsRow}>
-          <StatCard icon="person-outline" label="Assigned" value="856" color="#8B5CF6" />
-          <StatCard icon="construct-outline" label="In Maintenance" value="49" color="#F59E0B" />
-        </View>
+        {devicesLoading ? (
+          <ActivityIndicator size="large" color={AppColors.primaryLight} style={styles.loader} />
+        ) : devicesError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name={isNetworkError(devicesError) ? 'cloud-offline-outline' : 'alert-circle-outline'} size={32} color={AppColors.text.light} />
+            <ThemedText style={styles.errorText}>{isNetworkError(devicesError) ? NETWORK_ERROR_MESSAGE : devicesError}</ThemedText>
+            <TouchableOpacity style={styles.retryBtn} onPress={refetchDevices}>
+              <ThemedText style={styles.retryText}>Thử lại</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <View style={styles.statsRow}>
+              <StatCard icon="cube-outline" label="Total Devices" value={formatNumber(totalDevices)} gradient={AppColors.gradient.primary} />
+              <StatCard icon="checkmark-circle-outline" label="Available" value={formatNumber(statusCounts.available || 0)} color="#22C55E" />
+            </View>
+            <View style={styles.statsRow}>
+              <StatCard icon="person-outline" label="Assigned" value={formatNumber(statusCounts.assigned || 0)} color="#8B5CF6" />
+              <StatCard icon="construct-outline" label="In Maintenance" value={formatNumber(statusCounts.in_maintenance || 0)} color="#F59E0B" />
+            </View>
+          </>
+        )}
 
         {/* Alerts */}
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>Alerts</ThemedText>
-          {ALERTS.map((alert, i) => (
-            <View key={i} style={styles.alertRow}>
-              <View style={[styles.alertIcon, { backgroundColor: alert.color + '15' }]}>
-                <Ionicons name={alert.icon} size={18} color={alert.color} />
-              </View>
-              <ThemedText style={styles.alertText}>{alert.text}</ThemedText>
-              <Ionicons name="chevron-forward" size={16} color={AppColors.text.light} />
+          {alertsLoading || maintenanceLoading ? (
+            <ActivityIndicator size="small" color={AppColors.primaryLight} style={styles.loader} />
+          ) : alertsError ? (
+            <View style={styles.errorContainer}>
+              <ThemedText style={styles.errorText}>{isNetworkError(alertsError) ? NETWORK_ERROR_MESSAGE : alertsError}</ThemedText>
+              <TouchableOpacity style={styles.retryBtn} onPress={refetchAlerts}>
+                <ThemedText style={styles.retryText}>Thử lại</ThemedText>
+              </TouchableOpacity>
             </View>
-          ))}
+          ) : maintenanceError ? (
+            <View style={styles.errorContainer}>
+              <ThemedText style={styles.errorText}>{isNetworkError(maintenanceError) ? NETWORK_ERROR_MESSAGE : maintenanceError}</ThemedText>
+              <TouchableOpacity style={styles.retryBtn} onPress={refetchMaintenance}>
+                <ThemedText style={styles.retryText}>Thử lại</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : alerts.length === 0 ? (
+            <ThemedText style={styles.emptyText}>No alerts at this time</ThemedText>
+          ) : (
+            alerts.map((alert, i) => (
+              <View key={i} style={styles.alertRow}>
+                <View style={[styles.alertIcon, { backgroundColor: alert.color + '15' }]}>
+                  <Ionicons name={alert.icon} size={18} color={alert.color} />
+                </View>
+                <ThemedText style={styles.alertText}>{alert.text}</ThemedText>
+                <Ionicons name="chevron-forward" size={16} color={AppColors.text.light} />
+              </View>
+            ))
+          )}
         </View>
 
         {/* Recent Devices */}
@@ -67,9 +168,29 @@ export default function DashboardScreen() {
               <ThemedText style={styles.seeAll}>See All</ThemedText>
             </TouchableOpacity>
           </View>
-          {RECENT_DEVICES.map((device, i) => (
-            <DeviceCard key={i} {...device} onPress={() => router.push('/device-details')} />
-          ))}
+          {devicesLoading ? (
+            <ActivityIndicator size="small" color={AppColors.primaryLight} style={styles.loader} />
+          ) : devicesError ? (
+            <View style={styles.errorContainer}>
+              <ThemedText style={styles.errorText}>{isNetworkError(devicesError) ? NETWORK_ERROR_MESSAGE : devicesError}</ThemedText>
+              <TouchableOpacity style={styles.retryBtn} onPress={refetchDevices}>
+                <ThemedText style={styles.retryText}>Thử lại</ThemedText>
+              </TouchableOpacity>
+            </View>
+          ) : recentDevices.length === 0 ? (
+            <ThemedText style={styles.emptyText}>No devices found</ThemedText>
+          ) : (
+            recentDevices.map((device) => (
+              <DeviceCard
+                key={device._id}
+                name={device.name}
+                assetTag={device.assetTag}
+                category={getCategoryName(device)}
+                status={device.status}
+                onPress={() => router.push({ pathname: '/device-details', params: { id: device._id } })}
+              />
+            ))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -106,4 +227,13 @@ const styles = StyleSheet.create({
   },
   alertIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   alertText: { flex: 1, fontSize: 13, color: AppColors.text.secondary },
+  loader: { marginVertical: 20 },
+  errorContainer: { alignItems: 'center', paddingVertical: 16 },
+  errorText: { fontSize: 13, color: '#EF4444', marginBottom: 8, textAlign: 'center' },
+  retryBtn: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    backgroundColor: AppColors.primaryLight, borderRadius: 8,
+  },
+  retryText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  emptyText: { fontSize: 13, color: AppColors.text.light, textAlign: 'center', paddingVertical: 12 },
 });
