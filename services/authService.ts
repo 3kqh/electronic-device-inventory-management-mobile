@@ -1,4 +1,4 @@
-import { RegisterData, RegisterResponse, SignInResponse } from '../types/api';
+import { ChangePasswordData, RegisterData, RegisterResponse, SignInResponse, UpdateProfileData } from '../types/api';
 import { apiClient } from './apiClient';
 
 // ============================================================
@@ -42,5 +42,22 @@ export const authService = {
   async register(data: RegisterData): Promise<RegisterResponse> {
     const response = await apiClient.post<RegisterResponse>('/auth/register', data);
     return response.data;
+  },
+
+  async changePassword(data: ChangePasswordData): Promise<void> {
+    await apiClient.put('/auth/change-password', data);
+  },
+
+  async updateProfile(data: UpdateProfileData): Promise<SignInResponse['user']> {
+    const response = await apiClient.put<SignInResponse['user']>('/auth/profile', data);
+    return response.data;
+  },
+
+  async resetPassword(email: string): Promise<void> {
+    await apiClient.post('/auth/reset-password', { email });
+  },
+
+  async confirmResetPassword(data: { token: string; newPassword: string }): Promise<void> {
+    await apiClient.post('/auth/confirm-reset', data);
   },
 };

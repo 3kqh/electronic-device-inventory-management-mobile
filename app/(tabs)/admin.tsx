@@ -12,12 +12,15 @@ import { router } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const MENU_ITEMS = [
-  { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const, badge: '24' },
+  { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const },
   { icon: 'settings-outline' as const, title: 'System Settings', desc: 'Configure system preferences', route: '/system-settings' as const },
-  { icon: 'layers-outline' as const, title: 'Device Categories', desc: 'Manage categories & custom fields', route: '/system-settings' as const },
-  { icon: 'location-outline' as const, title: 'Locations', desc: 'Buildings, floors & rooms', route: '/system-settings' as const },
-  { icon: 'business-outline' as const, title: 'Departments', desc: 'Organizational structure', route: '/system-settings' as const },
-  { icon: 'document-text-outline' as const, title: 'Audit Trail', desc: 'View system activity logs', route: '/system-settings' as const, badge: '1.2K' },
+  { icon: 'layers-outline' as const, title: 'Device Categories', desc: 'Manage categories & custom fields', route: '/category-management' as const },
+  { icon: 'location-outline' as const, title: 'Locations', desc: 'Buildings, floors & rooms', route: '/location-management' as const },
+  { icon: 'business-outline' as const, title: 'Departments', desc: 'Organizational structure', route: '/department' as const },
+  { icon: 'document-text-outline' as const, title: 'Audit Trail', desc: 'View system activity logs', route: '/audit-logs' as const },
+  { icon: 'person-circle-outline' as const, title: 'Profile', desc: 'View & update your profile', route: '/profile' as const },
+  { icon: 'shield-checkmark-outline' as const, title: 'Warranty Management', desc: 'Track device warranties', route: '/warranty' as const },
+  { icon: 'trending-down-outline' as const, title: 'Depreciation', desc: 'Asset depreciation rules & values', route: '/depreciation' as const },
 ];
 
 const RECENT_AUDIT = [

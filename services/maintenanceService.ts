@@ -39,4 +39,34 @@ export const maintenanceService = {
     const response = await apiClient.post<MaintenanceRecord>('/maintenance/request', data);
     return response.data;
   },
+
+  async getById(id: string): Promise<MaintenanceRecord> {
+    const response = await apiClient.get<MaintenanceRecord>(`/maintenance/${id}`);
+    return response.data;
+  },
+
+  async recordMaintenance(data: MaintenanceRequestData): Promise<MaintenanceRecord> {
+    const response = await apiClient.post<MaintenanceRecord>('/maintenance/record', data);
+    return response.data;
+  },
+
+  async scheduleMaintenance(data: MaintenanceRequestData): Promise<MaintenanceRecord> {
+    const response = await apiClient.post<MaintenanceRecord>('/maintenance/schedule', data);
+    return response.data;
+  },
+
+  async updateMaintenance(id: string, data: Partial<MaintenanceRecord>): Promise<MaintenanceRecord> {
+    const response = await apiClient.put<MaintenanceRecord>(`/maintenance/${id}`, data);
+    return response.data;
+  },
+
+  async completeMaintenance(id: string, data: { cost?: number; notes?: string }): Promise<MaintenanceRecord> {
+    const response = await apiClient.patch<MaintenanceRecord>(`/maintenance/${id}/complete`, data);
+    return response.data;
+  },
+
+  async cancelMaintenance(id: string): Promise<MaintenanceRecord> {
+    const response = await apiClient.patch<MaintenanceRecord>(`/maintenance/${id}/cancel`);
+    return response.data;
+  },
 };

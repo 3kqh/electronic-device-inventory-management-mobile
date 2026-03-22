@@ -1,15 +1,15 @@
 import { Platform } from "react-native";
 
 export const AppColors = {
-  primary: "#1E3A8A",
+  primary: "#2563EB",
   primaryLight: "#3B82F6",
-  primaryDark: "#1E2A5E",
+  primaryDark: "#1D4ED8",
   accent: "#60A5FA",
   accentLight: "#93C5FD",
 
   gradient: {
-    primary: ["#1E3A8A", "#3B82F6"] as const,
-    header: ["#1E2A5E", "#1E3A8A", "#2563EB"] as const,
+    primary: ["#2563EB", "#60A5FA"] as const,
+    header: ["#1D4ED8", "#2563EB", "#3B82F6"] as const,
     card: ["#EFF6FF", "#DBEAFE"] as const,
     dark: ["#0F172A", "#1E293B"] as const,
   },
@@ -43,10 +43,10 @@ export const Colors = {
   light: {
     text: "#0F172A",
     background: "#F8FAFC",
-    tint: "#1E3A8A",
+    tint: "#2563EB",
     icon: "#64748B",
     tabIconDefault: "#94A3B8",
-    tabIconSelected: "#1E3A8A",
+    tabIconSelected: "#2563EB",
   },
   dark: {
     text: "#E2E8F0",

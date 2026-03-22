@@ -41,6 +41,14 @@ function RootNavigator() {
         <Stack.Screen name="assignment" options={{ presentation: 'modal', headerShown: true, title: 'Assignment', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="user-management" options={{ presentation: 'card', headerShown: true, title: 'User Management', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="system-settings" options={{ presentation: 'card', headerShown: true, title: 'System Settings', headerTintColor: AppColors.primary }} />
+        <Stack.Screen name="warranty" options={{ presentation: 'card', headerShown: false, title: 'Warranty Management' }} />
+        <Stack.Screen name="warranty-detail" options={{ presentation: 'card', headerShown: false, title: 'Warranty Detail' }} />
+        <Stack.Screen name="depreciation" options={{ presentation: 'card', headerShown: false, title: 'Depreciation Rules' }} />
+        <Stack.Screen name="department" options={{ presentation: 'card', headerShown: false, title: 'Department Management' }} />
+        <Stack.Screen name="location-management" options={{ presentation: 'card', headerShown: false, title: 'Location Management' }} />
+        <Stack.Screen name="audit-logs" options={{ presentation: 'card', headerShown: false, title: 'Audit Logs' }} />
+        <Stack.Screen name="profile" options={{ presentation: 'card', headerShown: false, title: 'Profile' }} />
+        <Stack.Screen name="category-management" options={{ presentation: 'card', headerShown: false, title: 'Category Management' }} />
       </Stack>
       {!isAuthenticated && <Redirect href="/login" />}
       {isAuthenticated && <Redirect href="/(tabs)" />}

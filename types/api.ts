@@ -217,3 +217,318 @@ export interface WarrantyAlert {
   daysRemaining: number;
   expiryDate: string;
 }
+
+// ============================================================
+// Warranty types
+// ============================================================
+
+export type WarrantyType = "manufacturer" | "extended" | "other";
+export type WarrantyStatus = "active" | "expired" | "cancelled";
+export type WarrantyClaimStatus =
+  | "filed"
+  | "in_review"
+  | "resolved"
+  | "rejected";
+
+export interface Warranty {
+  _id: string;
+  deviceId: Device | string;
+  type: WarrantyType;
+  provider: string;
+  startDate: string;
+  endDate: string;
+  coverage: string;
+  cost: number;
+  status: WarrantyStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarrantyClaim {
+  _id: string;
+  warrantyId: Warranty | string;
+  deviceId: Device | string;
+  claimNumber: string;
+  filedBy: User | string;
+  filedDate: string;
+  issue: string;
+  status: WarrantyClaimStatus;
+  resolution: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateWarrantyData {
+  deviceId: string;
+  type: WarrantyType;
+  provider: string;
+  startDate: string;
+  endDate: string;
+  coverage: string;
+  cost?: number;
+}
+
+export interface UpdateWarrantyData extends Partial<CreateWarrantyData> {
+  status?: WarrantyStatus;
+}
+
+export interface CreateWarrantyClaimData {
+  warrantyId: string;
+  deviceId: string;
+  issue: string;
+  filedDate?: string;
+}
+
+export interface UpdateWarrantyClaimData {
+  status?: WarrantyClaimStatus;
+  resolution?: string;
+}
+
+// ============================================================
+// Depreciation types
+// ============================================================
+
+export type DepreciationMethod = "straight_line" | "declining_balance";
+
+export interface DepreciationRule {
+  _id: string;
+  categoryId: DeviceCategory | string;
+  method: DepreciationMethod;
+  usefulLifeYears: number;
+  salvageValuePercent: number;
+  depreciationRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepreciationRuleData {
+  categoryId: string;
+  method: DepreciationMethod;
+  usefulLifeYears: number;
+  salvageValuePercent?: number;
+  depreciationRate?: number;
+}
+
+export interface UpdateDepreciationRuleData extends Partial<CreateDepreciationRuleData> {}
+
+export interface DeviceDepreciation {
+  device: Device;
+  originalValue: number;
+  currentValue: number;
+  totalDepreciation: number;
+  annualDepreciation: number;
+  schedule: Array<{ year: number; value: number; depreciation: number }>;
+}
+
+export interface CategoryDepreciation {
+  category: DeviceCategory;
+  devices: Array<{
+    device: Device;
+    currentValue: number;
+    depreciation: number;
+  }>;
+  totalOriginalValue: number;
+  totalCurrentValue: number;
+}
+
+export interface BatchUpdateResult {
+  updated: number;
+  errors: number;
+}
+
+// ============================================================
+// Department types
+// ============================================================
+
+export interface Department {
+  _id: string;
+  name: string;
+  code: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDepartmentData {
+  name: string;
+  code: string;
+  description?: string;
+}
+
+export interface UpdateDepartmentData extends Partial<CreateDepartmentData> {}
+
+// ============================================================
+// Audit Log types
+// ============================================================
+
+export interface AuditLog {
+  _id: string;
+  userId: User | string | null;
+  action: string;
+  module: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  ipAddress: string;
+  status: "SUCCESS" | "FAILED";
+  createdAt: string;
+}
+
+export interface AuditLogFilterParams {
+  page?: number;
+  limit?: number;
+  action?: string;
+  module?: string;
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}
+
+// ============================================================
+// Location extended types
+// ============================================================
+
+export interface LocationFull {
+  _id: string;
+  name: string;
+  code: string;
+  type: "building" | "floor" | "room" | "other";
+  parentId: string | null;
+  address?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLocationData {
+  name: string;
+  code?: string;
+  type: "building" | "floor" | "room" | "other";
+  parentId?: string;
+  address?: string;
+}
+
+export interface UpdateLocationData extends Partial<CreateLocationData> {}
+
+// ============================================================
+// Category extended types
+// ============================================================
+
+export interface DeviceCategoryFull {
+  _id: string;
+  name: string;
+  code: string;
+  description: string;
+  customFields: Array<{
+    fieldName: string;
+    fieldType: string;
+    required: boolean;
+  }>;
+  depreciationRuleId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCategoryData {
+  name: string;
+  code?: string;
+  description?: string;
+  customFields?: Array<{
+    fieldName: string;
+    fieldType: string;
+    required: boolean;
+  }>;
+}
+
+export interface UpdateCategoryData extends Partial<CreateCategoryData> {}
+
+// ============================================================
+// User extended types
+// ============================================================
+
+export interface CreateUserData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role?: UserRole;
+  departmentId?: string;
+}
+
+export interface UpdateUserData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  departmentId?: string;
+}
+
+// ============================================================
+// Auth extended types
+// ============================================================
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface UpdateProfileData {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+// ============================================================
+// Report extended types
+// ============================================================
+
+export interface InventoryValueReport {
+  totalValue: number;
+  byCategory: Array<{ category: string; value: number; count: number }>;
+}
+
+export interface MaintenanceReport {
+  totalRecords: number;
+  byStatus: Record<string, number>;
+  totalCost: number;
+}
+
+export interface ReportConfig {
+  _id: string;
+  name: string;
+  type: string;
+  filters: Record<string, unknown>;
+  schedule?: string;
+  createdAt: string;
+}
+
+export interface CreateReportConfigData {
+  name: string;
+  type: string;
+  filters?: Record<string, unknown>;
+  schedule?: string;
+}
+
+// ============================================================
+// System extended types
+// ============================================================
+
+export interface SystemStats {
+  totalDevices: number;
+  totalUsers: number;
+  totalCategories: number;
+  totalLocations: number;
+  totalAssignments: number;
+  totalMaintenance: number;
+}
+
+export interface BackupInfo {
+  filename: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface SystemLog {
+  level: string;
+  message: string;
+  timestamp: string;
+  metadata?: Record<string, unknown>;
+}
