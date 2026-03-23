@@ -156,7 +156,7 @@ export default function UserManagementScreen() {
       </View>
 
       {/* Role Filter Chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterScroll}>
         {ROLE_FILTERS.map((r) => {
           const isActive = selectedRole === r;
           return (
@@ -334,7 +334,8 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  filterScroll: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
+  filterBar: { maxHeight: 60, flexGrow: 0 },
+  filterScroll: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, alignItems: 'center' },
   filterChip: {
     paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: 20, backgroundColor: AppColors.bg.card,

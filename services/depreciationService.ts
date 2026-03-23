@@ -19,7 +19,7 @@ export const depreciationService = {
   },
 
   async getRuleById(id: string): Promise<DepreciationRule> {
-    const response = await apiClient.get<DepreciationRule>(`/depreciation/${id}`);
+    const response = await apiClient.get<DepreciationRule>(`/depreciation/rule/${id}`);
     return response.data;
   },
 
@@ -52,12 +52,12 @@ export const depreciationService = {
   },
 
   async getCategoryDepreciation(categoryId: string): Promise<CategoryDepreciation> {
-    const response = await apiClient.get<CategoryDepreciation>(`/depreciation/category/${categoryId}/devices`);
+    const response = await apiClient.get<CategoryDepreciation>(`/depreciation/category-depreciation/${categoryId}`);
     return response.data;
   },
 
   async batchUpdateValues(): Promise<BatchUpdateResult> {
-    const response = await apiClient.post<BatchUpdateResult>('/depreciation/batch-update');
+    const response = await apiClient.post<BatchUpdateResult>('/depreciation/batch-update-values');
     return response.data;
   },
 };

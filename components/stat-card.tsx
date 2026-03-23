@@ -39,7 +39,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     padding: 16,
-    minWidth: 140,
   },
   cardBg: {
     backgroundColor: AppColors.bg.card,

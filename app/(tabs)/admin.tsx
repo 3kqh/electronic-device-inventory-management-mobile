@@ -11,7 +11,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
-const MENU_ITEMS = [
+const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string; route: string; badge?: string }[] = [
   { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const },
   { icon: 'settings-outline' as const, title: 'System Settings', desc: 'Configure system preferences', route: '/system-settings' as const },
   { icon: 'layers-outline' as const, title: 'Device Categories', desc: 'Manage categories & custom fields', route: '/category-management' as const },
@@ -86,7 +86,7 @@ export default function AdminScreen() {
 
         <ThemedText style={styles.sectionTitle}>Administration</ThemedText>
         {MENU_ITEMS.map((item, i) => (
-          <TouchableOpacity key={i} style={styles.menuCard} activeOpacity={0.7} onPress={() => router.push(item.route)}>
+          <TouchableOpacity key={i} style={styles.menuCard} activeOpacity={0.7} onPress={() => router.push(item.route as never)}>
             <View style={styles.menuIcon}>
               <Ionicons name={item.icon} size={22} color={AppColors.primaryLight} />
             </View>

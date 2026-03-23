@@ -49,7 +49,12 @@ export const systemService = {
   },
 
   async getSystemLogs(params?: { page?: number; limit?: number; level?: string }): Promise<PaginatedResponse<SystemLog>> {
-    const response = await apiClient.get<PaginatedResponse<SystemLog>>('/system/logs', { params });
+    const queryParams: Record<string, string> = {};
+    if (params?.page !== undefined) queryParams.page = String(params.page);
+    if (params?.limit !== undefined) queryParams.limit = String(params.limit);
+    if (params?.level) queryParams.level = params.level;
+
+    const response = await apiClient.get<PaginatedResponse<SystemLog>>('/system/logs', queryParams);
     return response.data;
   },
 };

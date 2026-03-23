@@ -12,12 +12,16 @@ export const assignmentService = {
   },
 
   async getHistory(deviceId: string): Promise<Assignment[]> {
-    const response = await apiClient.get<Assignment[]>(`/assignments/history/${deviceId}`);
+    const response = await apiClient.get<Assignment[]>(`/assignments/device/${deviceId}/history`);
     return response.data;
   },
 
   async getAll(params?: { page?: number; limit?: number }): Promise<PaginatedResponse<Assignment>> {
-    const response = await apiClient.get<PaginatedResponse<Assignment>>('/assignments', { params });
+    const queryParams: Record<string, string> = {};
+    if (params?.page !== undefined) queryParams.page = String(params.page);
+    if (params?.limit !== undefined) queryParams.limit = String(params.limit);
+
+    const response = await apiClient.get<PaginatedResponse<Assignment>>('/assignments', queryParams);
     return response.data;
   },
 

@@ -43,10 +43,8 @@ export const warrantyService = {
   },
 
   async getExpiring(days?: number): Promise<Warranty[]> {
-    const queryParams: Record<string, string> = {};
-    if (days !== undefined) queryParams.days = String(days);
-
-    const response = await apiClient.get<Warranty[]>('/warranties/expiring', queryParams);
+    const path = days !== undefined ? `/warranties/expiring/${days}` : '/warranties/expiring';
+    const response = await apiClient.get<Warranty[]>(path);
     return response.data;
   },
 
@@ -55,7 +53,7 @@ export const warrantyService = {
   // ============================================================
 
   async createClaim(data: CreateWarrantyClaimData): Promise<WarrantyClaim> {
-    const response = await apiClient.post<WarrantyClaim>('/warranty-claims', data);
+    const response = await apiClient.post<WarrantyClaim>('/warranties/claims', data);
     return response.data;
   },
 
@@ -64,21 +62,21 @@ export const warrantyService = {
     if (params?.page !== undefined) queryParams.page = String(params.page);
     if (params?.limit !== undefined) queryParams.limit = String(params.limit);
 
-    const response = await apiClient.get<PaginatedResponse<WarrantyClaim>>('/warranty-claims', queryParams);
+    const response = await apiClient.get<PaginatedResponse<WarrantyClaim>>('/warranties/claims', queryParams);
     return response.data;
   },
 
   async getClaimById(id: string): Promise<WarrantyClaim> {
-    const response = await apiClient.get<WarrantyClaim>(`/warranty-claims/${id}`);
+    const response = await apiClient.get<WarrantyClaim>(`/warranties/claims/${id}`);
     return response.data;
   },
 
   async updateClaim(id: string, data: UpdateWarrantyClaimData): Promise<WarrantyClaim> {
-    const response = await apiClient.put<WarrantyClaim>(`/warranty-claims/${id}`, data);
+    const response = await apiClient.put<WarrantyClaim>(`/warranties/claims/${id}`, data);
     return response.data;
   },
 
   async deleteClaim(id: string): Promise<void> {
-    await apiClient.delete('/warranty-claims/' + id);
+    await apiClient.delete('/warranties/claims/' + id);
   },
 };
