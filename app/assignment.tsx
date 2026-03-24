@@ -200,7 +200,7 @@ export default function AssignmentScreen() {
         accessibilityRole="button"
         disabled={!selectedUserId || submitting}
       >
-        <LinearGradient colors={['#1E3A8A', '#3B82F6']} style={styles.submitGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+        <LinearGradient colors={['#4285F4', '#9B72CB']} style={styles.submitGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
           {submitting ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (

@@ -40,7 +40,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0F172A', '#1E3A8A', '#2563EB']} style={styles.container} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+    <LinearGradient colors={['#1A1A2E', '#2D1B69', '#4285F4']} style={styles.container} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={[styles.content, { paddingTop: insets.top + 60 }]}>
           {/* Logo */}
@@ -110,7 +110,7 @@ export default function LoginScreen() {
               disabled={isSubmitting}
               accessibilityRole="button"
             >
-              <LinearGradient colors={['#2563EB', '#3B82F6']} style={styles.loginGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={['#4285F4', '#9B72CB']} style={styles.loginGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 {isSubmitting ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
@@ -142,10 +142,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   appName: { fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
-  appDesc: { fontSize: 14, color: '#93C5FD', marginTop: 4, textAlign: 'center' },
+  appDesc: { fontSize: 14, color: '#C4A8E0', marginTop: 4, textAlign: 'center' },
   form: { gap: 18 },
   inputGroup: { gap: 6 },
-  label: { fontSize: 13, fontWeight: '600', color: '#93C5FD' },
+  label: { fontSize: 13, fontWeight: '600', color: '#C4A8E0' },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   input: { flex: 1, fontSize: 15, color: '#FFFFFF' },
-  forgotText: { fontSize: 13, color: '#93C5FD', textAlign: 'right' },
+  forgotText: { fontSize: 13, color: '#C4A8E0', textAlign: 'right' },
   loginBtn: { marginTop: 8, borderRadius: 14, overflow: 'hidden' },
   loginBtnDisabled: { opacity: 0.7 },
   loginGradient: {

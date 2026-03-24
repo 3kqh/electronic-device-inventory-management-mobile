@@ -73,7 +73,7 @@ export default function DashboardScreen() {
     alerts.push({
       icon: 'build-outline',
       text: `${upcomingMaintenance.length} upcoming maintenance${upcomingMaintenance.length > 1 ? ' tasks' : ' task'}`,
-      color: '#3B82F6',
+      color: '#4285F4',
     });
   }
 

@@ -183,7 +183,7 @@ export default function DeviceDetailsScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* Hero Card */}
-      <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+      <LinearGradient colors={['#2D1B69', '#4285F4']} style={styles.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
         <View style={styles.heroIcon}>
           <Ionicons name="laptop-outline" size={36} color="#fff" />
         </View>
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
   heroName: { fontSize: 22, fontWeight: '700', color: '#fff' },
-  heroTag: { fontSize: 14, color: '#93C5FD', marginTop: 4 },
+  heroTag: { fontSize: 14, color: '#C4A8E0', marginTop: 4 },
   heroStatus: { marginTop: 12 },
   actions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 16, marginTop: 20 },
   actionBtn: { alignItems: 'center', gap: 6 },

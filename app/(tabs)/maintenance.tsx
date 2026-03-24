@@ -3,23 +3,25 @@ import { StatCard } from '@/components/stat-card';
 import { StatusBadge } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { AppColors } from '@/constants/theme';
+import { deviceService } from '@/services/deviceService';
 import { maintenanceService } from '@/services/maintenanceService';
-import type { MaintenanceRecord, MaintenanceRequestData, MaintenanceType } from '@/types/api';
+import type { Device, MaintenanceRecord, MaintenanceRequestData, MaintenanceType, PaginatedResponse } from '@/types/api';
 import { countByStatus } from '@/utils/maintenanceUtils';
 import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const MAINTENANCE_TYPES: { label: string; value: MaintenanceType }[] = [
@@ -33,7 +35,7 @@ function getTypeIcon(type: string): { name: keyof typeof Ionicons.glyphMap; bg: 
     case 'corrective':
       return { name: 'hammer-outline', bg: '#FEE2E2', color: '#DC2626' };
     case 'preventive':
-      return { name: 'calendar-outline', bg: '#DBEAFE', color: '#2563EB' };
+      return { name: 'calendar-outline', bg: '#E8F0FE', color: '#4285F4' };
     default:
       return { name: 'search-outline', bg: '#FEF3C7', color: '#D97706' };
   }
@@ -57,16 +59,30 @@ export default function MaintenanceScreen() {
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Form modal state
   const [showForm, setShowForm] = useState(false);
   const [formDeviceId, setFormDeviceId] = useState('');
+  const [formDeviceName, setFormDeviceName] = useState('');
   const [formType, setFormType] = useState<MaintenanceType>('preventive');
   const [formScheduledDate, setFormScheduledDate] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Device picker state
+  const [availableDevices, setAvailableDevices] = useState<Device[]>([]);
+  const [devicesLoading, setDevicesLoading] = useState(false);
+  const [showDevicePicker, setShowDevicePicker] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState('');
+
+  // Date picker state
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(new Date().getMonth());
+  const [pickerDay, setPickerDay] = useState(new Date().getDate());
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -88,18 +104,42 @@ export default function MaintenanceScreen() {
 
   const statusCounts = countByStatus(records);
 
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchRecords();
+    setRefreshing(false);
+  }, [fetchRecords]);
+
   const resetForm = () => {
     setFormDeviceId('');
+    setFormDeviceName('');
     setFormType('preventive');
     setFormScheduledDate('');
     setFormDescription('');
     setFormNotes('');
     setFormError(null);
+    setDeviceSearch('');
+    setShowDevicePicker(false);
+    setShowDatePicker(false);
   };
+
+  const fetchAvailableDevices = useCallback(async () => {
+    setDevicesLoading(true);
+    try {
+      const response: PaginatedResponse<Device> = await deviceService.getAll({ limit: 200 });
+      setAvailableDevices(response.data);
+    } catch {
+      setAvailableDevices([]);
+    } finally {
+      setDevicesLoading(false);
+    }
+  }, []);
 
   const handleOpenForm = () => {
     resetForm();
     setShowForm(true);
+    fetchAvailableDevices();
   };
 
   const handleCloseForm = () => {
@@ -148,7 +188,11 @@ export default function MaintenanceScreen() {
 
   return (
     <View style={styles.container}>
-      <GradientHeader title="Maintenance" subtitle="Track repairs & schedules" />
+      <GradientHeader title="Maintenance" subtitle="Track repairs & schedules" rightElement={
+        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
+          {refreshing ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={22} color="#fff" />}
+        </TouchableOpacity>
+      } />
 
       {loading ? (
         <View style={styles.centerContainer}>
@@ -163,164 +207,294 @@ export default function MaintenanceScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.statsRow}>
-            <StatCard icon="time-outline" label="Pending" value={statusCounts.pending} color="#F59E0B" />
-            <StatCard icon="checkmark-done-outline" label="Completed" value={statusCounts.completed} color="#22C55E" />
-            <StatCard icon="calendar-outline" label="Scheduled" value={statusCounts.scheduled} color={AppColors.primaryLight} />
-          </View>
-
-          <ThemedText style={styles.sectionTitle}>Maintenance Records</ThemedText>
-
-          {records.length === 0 ? (
+        <FlatList
+          data={records}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          ListHeaderComponent={
+            <>
+              <View style={styles.statsRow}>
+                <StatCard icon="time-outline" label="Pending" value={statusCounts.pending} color="#F59E0B" />
+                <StatCard icon="checkmark-done-outline" label="Completed" value={statusCounts.completed} color="#22C55E" />
+                <StatCard icon="calendar-outline" label="Scheduled" value={statusCounts.scheduled} color={AppColors.primaryLight} />
+              </View>
+              <ThemedText style={styles.sectionTitle}>Maintenance Records</ThemedText>
+            </>
+          }
+          ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="construct-outline" size={48} color={AppColors.text.light} />
               <ThemedText style={styles.emptyText}>No maintenance records found</ThemedText>
             </View>
-          ) : (
-            records.map((r) => {
-              const typeInfo = getTypeIcon(r.type);
-              const deviceName = getDeviceName(r);
-              const deviceTag = getDeviceTag(r);
-              const displayDate = r.scheduledDate ? new Date(r.scheduledDate).toLocaleDateString() : '—';
-
-              return (
-                <TouchableOpacity key={r._id} style={styles.card} activeOpacity={0.7}>
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardLeft}>
-                      <View style={[styles.typeIcon, { backgroundColor: typeInfo.bg }]}>
-                        <Ionicons name={typeInfo.name} size={18} color={typeInfo.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <ThemedText style={styles.deviceName}>{deviceName}</ThemedText>
-                        <ThemedText style={styles.deviceTag}>
-                          {deviceTag ? `${deviceTag} · ` : ''}{r.type}
-                        </ThemedText>
-                      </View>
+          }
+          renderItem={({ item: r }) => {
+            const typeInfo = getTypeIcon(r.type);
+            const deviceName = getDeviceName(r);
+            const deviceTag = getDeviceTag(r);
+            const displayDate = r.scheduledDate ? new Date(r.scheduledDate).toLocaleDateString() : '—';
+            return (
+              <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => router.push({ pathname: '/maintenance-detail', params: { id: r._id } })}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardLeft}>
+                    <View style={[styles.typeIcon, { backgroundColor: typeInfo.bg }]}>
+                      <Ionicons name={typeInfo.name} size={18} color={typeInfo.color} />
                     </View>
-                    <StatusBadge status={r.status} />
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={styles.deviceName}>{deviceName}</ThemedText>
+                      <ThemedText style={styles.deviceTag}>
+                        {deviceTag ? `${deviceTag} · ` : ''}{r.type}
+                      </ThemedText>
+                    </View>
                   </View>
-                  {r.description ? (
-                    <ThemedText style={styles.descriptionText} numberOfLines={2}>{r.description}</ThemedText>
-                  ) : null}
-                  <View style={styles.cardFooter}>
+                  <StatusBadge status={r.status} />
+                </View>
+                {r.description ? (
+                  <ThemedText style={styles.descriptionText} numberOfLines={2}>{r.description}</ThemedText>
+                ) : null}
+                <View style={styles.cardFooter}>
+                  <View style={styles.footerItem}>
+                    <Ionicons name="calendar-outline" size={13} color={AppColors.text.light} />
+                    <ThemedText style={styles.footerText}>{displayDate}</ThemedText>
+                  </View>
+                  {r.cost > 0 && (
                     <View style={styles.footerItem}>
-                      <Ionicons name="calendar-outline" size={13} color={AppColors.text.light} />
-                      <ThemedText style={styles.footerText}>{displayDate}</ThemedText>
+                      <Ionicons name="cash-outline" size={13} color={AppColors.text.light} />
+                      <ThemedText style={styles.footerText}>${r.cost.toLocaleString()}</ThemedText>
                     </View>
-                    {r.cost > 0 && (
-                      <View style={styles.footerItem}>
-                        <Ionicons name="cash-outline" size={13} color={AppColors.text.light} />
-                        <ThemedText style={styles.footerText}>${r.cost.toLocaleString()}</ThemedText>
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          )}
-        </ScrollView>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
       )}
 
       <TouchableOpacity style={styles.fab} activeOpacity={0.8} accessibilityLabel="Add maintenance record" onPress={handleOpenForm}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* Maintenance Request Form Modal */}
-      <Modal visible={showForm} animationType="slide" transparent>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText style={styles.modalTitle}>New Maintenance Request</ThemedText>
-              <TouchableOpacity onPress={handleCloseForm} hitSlop={8}>
-                <Ionicons name="close" size={24} color={AppColors.text.secondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
-              {formError && (
-                <View style={styles.formErrorContainer}>
-                  <Ionicons name="alert-circle" size={16} color="#DC2626" />
-                  <ThemedText style={styles.formErrorText}>{formError}</ThemedText>
-                </View>
-              )}
-
-              <ThemedText style={styles.fieldLabel}>Device ID *</ThemedText>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter device ID"
-                placeholderTextColor={AppColors.text.light}
-                value={formDeviceId}
-                onChangeText={setFormDeviceId}
-                editable={!submitting}
-              />
-
-              <ThemedText style={styles.fieldLabel}>Type *</ThemedText>
-              <View style={styles.typeRow}>
-                {MAINTENANCE_TYPES.map((t) => (
-                  <TouchableOpacity
-                    key={t.value}
-                    style={[styles.typeChip, formType === t.value && styles.typeChipActive]}
-                    onPress={() => setFormType(t.value)}
-                    disabled={submitting}
-                  >
-                    <ThemedText style={[styles.typeChipText, formType === t.value && styles.typeChipTextActive]}>
-                      {t.label}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
+      {/* Maintenance Request Form — Overlay */}
+      {showForm && (
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView style={styles.modalKeyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <ThemedText style={styles.modalTitle}>New Maintenance Request</ThemedText>
+                <TouchableOpacity onPress={handleCloseForm} hitSlop={8}>
+                  <Ionicons name="close" size={24} color={AppColors.text.secondary} />
+                </TouchableOpacity>
               </View>
 
-              <ThemedText style={styles.fieldLabel}>Scheduled Date *</ThemedText>
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={AppColors.text.light}
-                value={formScheduledDate}
-                onChangeText={setFormScheduledDate}
-                editable={!submitting}
-              />
+              <ScrollView style={styles.formScroll} showsVerticalScrollIndicator={false}>
+                {formError && (
+                  <View style={styles.formErrorContainer}>
+                    <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                    <ThemedText style={styles.formErrorText}>{formError}</ThemedText>
+                  </View>
+                )}
 
-              <ThemedText style={styles.fieldLabel}>Description *</ThemedText>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Describe the maintenance needed"
-                placeholderTextColor={AppColors.text.light}
-                value={formDescription}
-                onChangeText={setFormDescription}
-                multiline
-                numberOfLines={3}
-                editable={!submitting}
-              />
+                {/* Device Picker */}
+                <ThemedText style={styles.fieldLabel}>Device *</ThemedText>
+                <TouchableOpacity
+                  style={[styles.input, styles.pickerInput]}
+                  onPress={() => { setShowDevicePicker(!showDevicePicker); setShowDatePicker(false); }}
+                  disabled={submitting}
+                >
+                  <ThemedText style={formDeviceId ? styles.pickerValue : styles.pickerPlaceholder} numberOfLines={1}>
+                    {formDeviceName || 'Select a device'}
+                  </ThemedText>
+                  <Ionicons name={showDevicePicker ? 'chevron-up' : 'chevron-down'} size={18} color={AppColors.text.light} />
+                </TouchableOpacity>
 
-              <ThemedText style={styles.fieldLabel}>Notes (optional)</ThemedText>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Additional notes"
-                placeholderTextColor={AppColors.text.light}
-                value={formNotes}
-                onChangeText={setFormNotes}
-                multiline
-                numberOfLines={2}
-                editable={!submitting}
-              />
-            </ScrollView>
+                {showDevicePicker && (
+                  <View style={styles.dropdownContainer}>
+                    <TextInput
+                      style={styles.dropdownSearch}
+                      placeholder="Search devices..."
+                      placeholderTextColor={AppColors.text.light}
+                      value={deviceSearch}
+                      onChangeText={setDeviceSearch}
+                    />
+                    <ScrollView style={styles.dropdownList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                      {devicesLoading ? (
+                        <ActivityIndicator size="small" color={AppColors.primaryLight} style={{ paddingVertical: 16 }} />
+                      ) : (
+                        availableDevices
+                          .filter(d => {
+                            if (!deviceSearch.trim()) return true;
+                            const q = deviceSearch.toLowerCase();
+                            return d.name.toLowerCase().includes(q) || d.assetTag.toLowerCase().includes(q) || d.serialNumber.toLowerCase().includes(q);
+                          })
+                          .map(d => (
+                            <TouchableOpacity
+                              key={d._id}
+                              style={[styles.dropdownItem, formDeviceId === d._id && styles.dropdownItemActive]}
+                              onPress={() => {
+                                setFormDeviceId(d._id);
+                                setFormDeviceName(`${d.name} (${d.assetTag})`);
+                                setShowDevicePicker(false);
+                                setDeviceSearch('');
+                              }}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <ThemedText style={[styles.dropdownItemName, formDeviceId === d._id && styles.dropdownItemTextActive]} numberOfLines={1}>
+                                  {d.name}
+                                </ThemedText>
+                                <ThemedText style={[styles.dropdownItemTag, formDeviceId === d._id && styles.dropdownItemTextActive]}>
+                                  {d.assetTag} · {d.status}
+                                </ThemedText>
+                              </View>
+                              {formDeviceId === d._id && <Ionicons name="checkmark" size={18} color="#fff" />}
+                            </TouchableOpacity>
+                          ))
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
 
-            <TouchableOpacity
-              style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-              onPress={handleSubmitRequest}
-              disabled={submitting}
-              activeOpacity={0.8}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <ThemedText style={styles.submitBtnText}>Submit Request</ThemedText>
-              )}
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+                <ThemedText style={styles.fieldLabel}>Type *</ThemedText>
+                <View style={styles.typeRow}>
+                  {MAINTENANCE_TYPES.map((t) => (
+                    <TouchableOpacity
+                      key={t.value}
+                      style={[styles.typeChip, formType === t.value && styles.typeChipActive]}
+                      onPress={() => setFormType(t.value)}
+                      disabled={submitting}
+                    >
+                      <ThemedText style={[styles.typeChipText, formType === t.value && styles.typeChipTextActive]}>
+                        {t.label}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Scheduled Date Picker */}
+                <ThemedText style={styles.fieldLabel}>Scheduled Date *</ThemedText>
+                <TouchableOpacity
+                  style={[styles.input, styles.pickerInput]}
+                  onPress={() => { setShowDatePicker(!showDatePicker); setShowDevicePicker(false); }}
+                  disabled={submitting}
+                >
+                  <ThemedText style={formScheduledDate ? styles.pickerValue : styles.pickerPlaceholder}>
+                    {formScheduledDate || 'Select date'}
+                  </ThemedText>
+                  <Ionicons name="calendar-outline" size={18} color={AppColors.text.light} />
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <View style={styles.datePickerContainer}>
+                    <View style={styles.datePickerRow}>
+                      {/* Year */}
+                      <View style={styles.dateColumn}>
+                        <ThemedText style={styles.dateColLabel}>Year</ThemedText>
+                        <ScrollView style={styles.dateScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                          {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
+                            <TouchableOpacity
+                              key={y}
+                              style={[styles.dateOption, pickerYear === y && styles.dateOptionActive]}
+                              onPress={() => setPickerYear(y)}
+                            >
+                              <ThemedText style={[styles.dateOptionText, pickerYear === y && styles.dateOptionTextActive]}>
+                                {y}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                      {/* Month */}
+                      <View style={styles.dateColumn}>
+                        <ThemedText style={styles.dateColLabel}>Month</ThemedText>
+                        <ScrollView style={styles.dateScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                          {Array.from({ length: 12 }, (_, i) => i).map(m => (
+                            <TouchableOpacity
+                              key={m}
+                              style={[styles.dateOption, pickerMonth === m && styles.dateOptionActive]}
+                              onPress={() => setPickerMonth(m)}
+                            >
+                              <ThemedText style={[styles.dateOptionText, pickerMonth === m && styles.dateOptionTextActive]}>
+                                {new Date(2000, m).toLocaleString('default', { month: 'short' })}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                      {/* Day */}
+                      <View style={styles.dateColumn}>
+                        <ThemedText style={styles.dateColLabel}>Day</ThemedText>
+                        <ScrollView style={styles.dateScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                          {Array.from({ length: new Date(pickerYear, pickerMonth + 1, 0).getDate() }, (_, i) => i + 1).map(d => (
+                            <TouchableOpacity
+                              key={d}
+                              style={[styles.dateOption, pickerDay === d && styles.dateOptionActive]}
+                              onPress={() => setPickerDay(d)}
+                            >
+                              <ThemedText style={[styles.dateOptionText, pickerDay === d && styles.dateOptionTextActive]}>
+                                {d}
+                              </ThemedText>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.dateConfirmBtn}
+                      onPress={() => {
+                        const dateStr = `${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(pickerDay).padStart(2, '0')}`;
+                        setFormScheduledDate(dateStr);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      <ThemedText style={styles.dateConfirmText}>
+                        {`Confirm: ${pickerYear}-${String(pickerMonth + 1).padStart(2, '0')}-${String(pickerDay).padStart(2, '0')}`}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <ThemedText style={styles.fieldLabel}>Description *</ThemedText>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Describe the maintenance needed"
+                  placeholderTextColor={AppColors.text.light}
+                  value={formDescription}
+                  onChangeText={setFormDescription}
+                  multiline
+                  numberOfLines={3}
+                  editable={!submitting}
+                />
+
+                <ThemedText style={styles.fieldLabel}>Notes (optional)</ThemedText>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Additional notes"
+                  placeholderTextColor={AppColors.text.light}
+                  value={formNotes}
+                  onChangeText={setFormNotes}
+                  multiline
+                  numberOfLines={2}
+                  editable={!submitting}
+                />
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+                onPress={handleSubmitRequest}
+                disabled={submitting}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <ThemedText style={styles.submitBtnText}>Submit Request</ThemedText>
+                )}
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      )}
     </View>
   );
 }
@@ -357,6 +531,11 @@ const styles = StyleSheet.create({
     shadowColor: AppColors.primary, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
+  refreshBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   centerContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 20, gap: 12,
@@ -369,9 +548,15 @@ const styles = StyleSheet.create({
   retryBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   emptyContainer: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   emptyText: { fontSize: 14, color: AppColors.text.light, textAlign: 'center' },
-  // Modal styles
+  // Modal/Overlay styles
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  modalKeyboard: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -414,4 +599,55 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+  // Picker input
+  pickerInput: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  pickerValue: { fontSize: 15, color: AppColors.text.primary, flex: 1 },
+  pickerPlaceholder: { fontSize: 15, color: AppColors.text.light, flex: 1 },
+  // Device dropdown
+  dropdownContainer: {
+    backgroundColor: AppColors.bg.card, borderRadius: 12,
+    borderWidth: 1, borderColor: AppColors.bg.border,
+    marginTop: 6, overflow: 'hidden',
+  },
+  dropdownSearch: {
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 14, color: AppColors.text.primary,
+    borderBottomWidth: 1, borderBottomColor: AppColors.bg.border,
+  },
+  dropdownList: { maxHeight: 180 },
+  dropdownItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: AppColors.bg.border,
+  },
+  dropdownItemActive: { backgroundColor: AppColors.primary },
+  dropdownItemName: { fontSize: 14, fontWeight: '600', color: AppColors.text.primary },
+  dropdownItemTag: { fontSize: 12, color: AppColors.text.secondary, marginTop: 1 },
+  dropdownItemTextActive: { color: '#fff' },
+  // Date picker
+  datePickerContainer: {
+    backgroundColor: AppColors.bg.card, borderRadius: 12,
+    borderWidth: 1, borderColor: AppColors.bg.border,
+    marginTop: 6, padding: 12,
+  },
+  datePickerRow: { flexDirection: 'row', gap: 6 },
+  dateColumn: { flex: 1 },
+  dateColLabel: {
+    fontSize: 11, fontWeight: '600', color: AppColors.text.light,
+    textAlign: 'center', marginBottom: 6,
+  },
+  dateScroll: { height: 150 },
+  dateOption: {
+    paddingVertical: 7, borderRadius: 8, alignItems: 'center', marginBottom: 2,
+  },
+  dateOptionActive: { backgroundColor: AppColors.primary },
+  dateOptionText: { fontSize: 13, color: AppColors.text.secondary },
+  dateOptionTextActive: { color: '#fff', fontWeight: '700' },
+  dateConfirmBtn: {
+    backgroundColor: AppColors.primary, borderRadius: 10,
+    paddingVertical: 12, alignItems: 'center', marginTop: 10,
+  },
+  dateConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

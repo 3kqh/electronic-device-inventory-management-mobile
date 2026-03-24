@@ -11,7 +11,7 @@ import { canCRUDDevices } from '@/utils/permissions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const FILTERS = ['All', 'Available', 'Assigned', 'Maintenance', 'Retired'] as const;
 
@@ -38,6 +38,7 @@ export default function DevicesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [refreshing, setRefreshing] = useState(false);
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,12 +117,23 @@ export default function DevicesScreen() {
     fetchDevices(searchQuery, activeFilter);
   }, [searchQuery, activeFilter, fetchDevices]);
 
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchDevices(searchQuery, activeFilter);
+    setRefreshing(false);
+  }, [searchQuery, activeFilter, fetchDevices]);
+
   const showFab = user ? canCRUDDevices(user.role) : false;
   const subtitle = `${totalCount.toLocaleString()} total devices`;
 
   return (
     <View style={styles.container}>
-      <GradientHeader title="Devices" subtitle={subtitle}>
+      <GradientHeader title="Devices" subtitle={subtitle} rightElement={
+        <TouchableOpacity onPress={handleRefresh} style={styles.refreshBtn} activeOpacity={0.7}>
+          {refreshing ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh-outline" size={22} color="#fff" />}
+        </TouchableOpacity>
+      }>
         <SearchBar
           placeholder="Search by name, tag, serial..."
           value={searchQuery}
@@ -163,18 +175,23 @@ export default function DevicesScreen() {
           <ThemedText style={styles.emptyText}>No devices found</ThemedText>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {devices.map((device) => (
+        <FlatList
+          data={devices}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          renderItem={({ item: device }) => (
             <DeviceCard
-              key={device._id}
               name={device.name}
               assetTag={device.assetTag}
               category={getCategoryName(device)}
               status={device.status}
               onPress={() => router.push({ pathname: '/device-details', params: { id: device._id } })}
             />
-          ))}
-        </ScrollView>
+          )}
+        />
       )}
 
       {showFab && (
@@ -224,5 +241,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: AppColors.primary, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  },
+  refreshBtn: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
   },
 });

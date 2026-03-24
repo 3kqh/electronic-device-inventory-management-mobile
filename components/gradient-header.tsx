@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#93C5FD',
+    color: '#C4A8E0',
     marginTop: 4,
   },
 });

@@ -26,7 +26,7 @@ import {
 
 const ROLE_COLORS: Record<string, string> = {
   admin: '#EF4444',
-  inventory_manager: '#3B82F6',
+  inventory_manager: '#4285F4',
   staff: '#22C55E',
 };
 
@@ -90,8 +90,12 @@ export default function UserManagementScreen() {
       Alert.alert('Success', 'User registered successfully');
       refetch();
     } catch (err: unknown) {
-      const apiError = err as { message?: string };
-      setRegError(apiError?.message ?? 'Failed to register user');
+      const apiError = err as { message?: string; errors?: string[] };
+      if (apiError?.errors?.length) {
+        setRegError(apiError.errors.join('\n'));
+      } else {
+        setRegError(apiError?.message ?? 'Failed to register user');
+      }
     } finally {
       setRegistering(false);
     }
@@ -187,7 +191,7 @@ export default function UserManagementScreen() {
             const roleColor = ROLE_COLORS[user.role] ?? '#6B7280';
 
             return (
-              <View key={user._id} style={styles.userCard}>
+              <TouchableOpacity key={user._id} style={styles.userCard} onPress={() => router.push({ pathname: '/user-detail', params: { id: user._id } })} activeOpacity={0.7}>
                 <View style={[styles.avatar, { backgroundColor: roleColor + '20' }]}>
                   <ThemedText style={[styles.avatarText, { color: roleColor }]}>{initials}</ThemedText>
                 </View>
@@ -205,7 +209,7 @@ export default function UserManagementScreen() {
                 <View style={styles.userRight}>
                   <StatusBadge status={display.status} />
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -272,6 +276,9 @@ export default function UserManagementScreen() {
                 secureTextEntry
                 accessibilityLabel="Password"
               />
+              <ThemedText style={styles.passwordHint}>
+                Min 8 chars, uppercase, lowercase, number, and special character
+              </ThemedText>
 
               <ThemedText style={styles.fieldLabel}>Role</ThemedText>
               <View style={styles.roleSelector}>
@@ -394,6 +401,7 @@ const styles = StyleSheet.create({
     fontSize: 15, color: AppColors.text.primary,
     borderWidth: 1, borderColor: AppColors.bg.border,
   },
+  passwordHint: { fontSize: 11, color: AppColors.text.light, marginTop: 4 },
   roleSelector: { flexDirection: 'row', gap: 8, marginTop: 4 },
   roleSelectorChip: {
     flex: 1, paddingVertical: 10, borderRadius: 10,

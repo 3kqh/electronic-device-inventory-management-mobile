@@ -40,6 +40,7 @@ function RootNavigator() {
         <Stack.Screen name="device-form" options={{ presentation: 'modal', headerShown: true, title: 'Add Device', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="assignment" options={{ presentation: 'modal', headerShown: true, title: 'Assignment', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="user-management" options={{ presentation: 'card', headerShown: true, title: 'User Management', headerTintColor: AppColors.primary }} />
+        <Stack.Screen name="user-detail" options={{ presentation: 'card', headerShown: true, title: 'User Detail', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="system-settings" options={{ presentation: 'card', headerShown: true, title: 'System Settings', headerTintColor: AppColors.primary }} />
         <Stack.Screen name="warranty" options={{ presentation: 'card', headerShown: false, title: 'Warranty Management' }} />
         <Stack.Screen name="warranty-detail" options={{ presentation: 'card', headerShown: false, title: 'Warranty Detail' }} />
@@ -49,6 +50,7 @@ function RootNavigator() {
         <Stack.Screen name="audit-logs" options={{ presentation: 'card', headerShown: false, title: 'Audit Logs' }} />
         <Stack.Screen name="profile" options={{ presentation: 'card', headerShown: false, title: 'Profile' }} />
         <Stack.Screen name="category-management" options={{ presentation: 'card', headerShown: false, title: 'Category Management' }} />
+        <Stack.Screen name="maintenance-detail" options={{ presentation: 'card', headerShown: true, title: 'Maintenance Detail', headerTintColor: AppColors.primary }} />
       </Stack>
       {!isAuthenticated && <Redirect href="/login" />}
       {isAuthenticated && <Redirect href="/(tabs)" />}

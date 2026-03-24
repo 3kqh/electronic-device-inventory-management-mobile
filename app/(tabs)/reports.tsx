@@ -23,7 +23,7 @@ interface ReportType {
 }
 
 const REPORT_TYPES: ReportType[] = [
-  { key: 'inventory', icon: 'cube-outline', title: 'Inventory Report', desc: 'Overview of all devices by status & category', color: '#3B82F6' },
+  { key: 'inventory', icon: 'cube-outline', title: 'Inventory Report', desc: 'Overview of all devices by status & category', color: '#4285F4' },
   { key: 'assignment', icon: 'people-outline', title: 'Assignment Report', desc: 'Device assignments by employee & department', color: '#8B5CF6' },
   { key: 'warranty', icon: 'shield-checkmark-outline', title: 'Warranty Report', desc: 'Warranty status, claims & expirations', color: '#22C55E' },
   { key: 'depreciation', icon: 'trending-down-outline', title: 'Depreciation Report', desc: 'Asset depreciation & current book values', color: '#EF4444' },
@@ -70,7 +70,7 @@ export default function ReportsScreen() {
           data = await reportService.getWarranty();
           break;
         case 'depreciation':
-          data = await reportService.getDepreciation();
+          data = await reportService.getInventoryValue();
           break;
         default:
           return;
@@ -103,7 +103,7 @@ export default function ReportsScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Quick Export */}
-        <LinearGradient colors={['#1E3A8A', '#2563EB']} style={styles.quickExport} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+        <LinearGradient colors={['#2D1B69', '#4285F4']} style={styles.quickExport} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
           <View style={styles.qeContent}>
             <ThemedText style={styles.qeTitle}>Quick Export</ThemedText>
             <ThemedText style={styles.qeDesc}>Export full inventory as CSV or PDF</ThemedText>
@@ -172,28 +172,91 @@ export default function ReportsScreen() {
 // Report data renderer
 // ---------------------------------------------------------------------------
 
+/** Safely render a value as a string for display. */
+function displayValue(value: unknown): string {
+  if (value == null) return '—';
+  if (typeof value === 'number') return value.toLocaleString();
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return `${value.length} items`;
+  if (typeof value === 'object') {
+    // Try to extract a meaningful label from common shapes
+    const obj = value as Record<string, unknown>;
+    if (obj.name) return String(obj.name);
+    if (obj.count != null) return String(obj.count);
+    return `${Object.keys(obj).length} fields`;
+  }
+  return String(value);
+}
+
 function renderReportData(key: string, data: Record<string, unknown>) {
+  // ── Inventory / Device Status Report ──
   if (key === 'inventory') {
-    const report = data as { totalDevices?: number; byStatus?: Record<string, number>; byCategory?: Array<{ category: string; count: number }> };
+    const summary = (data.summary ?? {}) as Record<string, unknown>;
+    const byStatus = data.byStatus as Record<string, unknown[]> | undefined;
+    const byCategory = data.byCategory as Record<string, { count: number; devices?: unknown[] }> | undefined;
+    const byLocation = data.byLocation as Record<string, { count: number }> | undefined;
+
     return (
       <View>
+        {/* Summary counts */}
         <View style={styles.resultRow}>
           <ThemedText style={styles.resultLabel}>Total Devices</ThemedText>
-          <ThemedText style={styles.resultValue}>{report.totalDevices ?? 0}</ThemedText>
+          <ThemedText style={styles.resultValue}>{displayValue(summary.totalDevices)}</ThemedText>
         </View>
-        {report.byStatus && Object.entries(report.byStatus).map(([status, count]) => (
-          <View key={status} style={styles.resultRow}>
-            <ThemedText style={styles.resultLabel}>{status.replace(/_/g, ' ')}</ThemedText>
-            <ThemedText style={styles.resultValue}>{count}</ThemedText>
+        {summary.available != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Available</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.available)}</ThemedText>
           </View>
-        ))}
-        {report.byCategory && report.byCategory.length > 0 && (
+        )}
+        {summary.assigned != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Assigned</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.assigned)}</ThemedText>
+          </View>
+        )}
+        {summary.inMaintenance != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>In Maintenance</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.inMaintenance)}</ThemedText>
+          </View>
+        )}
+        {summary.retired != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Retired</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.retired)}</ThemedText>
+          </View>
+        )}
+
+        {/* By Category — backend sends { count, devices[] } per category name */}
+        {byCategory && (
           <>
             <ThemedText style={styles.resultSubtitle}>By Category</ThemedText>
-            {report.byCategory.map((item, i) => (
-              <View key={i} style={styles.resultRow}>
-                <ThemedText style={styles.resultLabel}>{item.category}</ThemedText>
-                <ThemedText style={styles.resultValue}>{item.count}</ThemedText>
+            {Object.entries(byCategory).map(([name, info]) => (
+              <View key={name} style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>{name}</ThemedText>
+                <ThemedText style={styles.resultValue}>
+                  {typeof info === 'object' && info !== null && 'count' in info
+                    ? String(info.count)
+                    : displayValue(info)}
+                </ThemedText>
+              </View>
+            ))}
+          </>
+        )}
+
+        {/* By Location */}
+        {byLocation && (
+          <>
+            <ThemedText style={styles.resultSubtitle}>By Location</ThemedText>
+            {Object.entries(byLocation).map(([name, info]) => (
+              <View key={name} style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>{name}</ThemedText>
+                <ThemedText style={styles.resultValue}>
+                  {typeof info === 'object' && info !== null && 'count' in info
+                    ? String(info.count)
+                    : displayValue(info)}
+                </ThemedText>
               </View>
             ))}
           </>
@@ -202,22 +265,174 @@ function renderReportData(key: string, data: Record<string, unknown>) {
     );
   }
 
-  // Generic renderer for assignment, warranty, depreciation reports
-  const entries = Object.entries(data);
-  if (entries.length === 0) {
+  // ── Assignment Report ──
+  if (key === 'assignment') {
+    const total = data.total as number | undefined;
+    const byStatus = data.byStatus as Record<string, number> | undefined;
+    const assignments = data.assignments as Array<Record<string, unknown>> | undefined;
+
     return (
-      <ThemedText style={styles.emptyText}>No data available for this report</ThemedText>
+      <View>
+        <View style={styles.resultRow}>
+          <ThemedText style={styles.resultLabel}>Total Assignments</ThemedText>
+          <ThemedText style={styles.resultValue}>{displayValue(total)}</ThemedText>
+        </View>
+        {byStatus && Object.entries(byStatus).map(([status, count]) => (
+          <View key={status} style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>{status.replace(/_/g, ' ')}</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(count)}</ThemedText>
+          </View>
+        ))}
+        {assignments && assignments.length > 0 && (
+          <>
+            <ThemedText style={styles.resultSubtitle}>Recent Assignments</ThemedText>
+            {assignments.slice(0, 10).map((a, i) => (
+              <View key={i} style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel} numberOfLines={1}>
+                  {String(a.deviceName ?? 'Unknown')}
+                </ThemedText>
+                <ThemedText style={styles.resultValue}>{String(a.status ?? '—')}</ThemedText>
+              </View>
+            ))}
+          </>
+        )}
+      </View>
     );
   }
 
+  // ── Warranty Report ──
+  if (key === 'warranty') {
+    const summary = (data.summary ?? {}) as Record<string, unknown>;
+    const warranties = data.warranties as Array<Record<string, unknown>> | undefined;
+
+    return (
+      <View>
+        {summary.total != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Warranties</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.total)}</ThemedText>
+          </View>
+        )}
+        {summary.active != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Active</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.active)}</ThemedText>
+          </View>
+        )}
+        {summary.expired != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Expired</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.expired)}</ThemedText>
+          </View>
+        )}
+        {summary.cancelled != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Cancelled</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.cancelled)}</ThemedText>
+          </View>
+        )}
+        {summary.totalCost != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Cost</ThemedText>
+            <ThemedText style={styles.resultValue}>${Number(summary.totalCost).toLocaleString()}</ThemedText>
+          </View>
+        )}
+        {summary.expiringWithin30Days != null && Number(summary.expiringWithin30Days) > 0 && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Expiring within 30 days</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.expiringWithin30Days)}</ThemedText>
+          </View>
+        )}
+        {summary.expiringWithin7Days != null && Number(summary.expiringWithin7Days) > 0 && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Expiring within 7 days</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.expiringWithin7Days)}</ThemedText>
+          </View>
+        )}
+        {warranties && warranties.length > 0 && (
+          <>
+            <ThemedText style={styles.resultSubtitle}>Warranties</ThemedText>
+            {warranties.slice(0, 10).map((w, i) => (
+              <View key={i} style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel} numberOfLines={1}>
+                  {String(w.device ?? 'Unknown')} · {String(w.provider ?? '')}
+                </ThemedText>
+                <ThemedText style={styles.resultValue}>{String(w.status ?? '—')}</ThemedText>
+              </View>
+            ))}
+          </>
+        )}
+      </View>
+    );
+  }
+
+  // ── Depreciation / Inventory Value Report ──
+  if (key === 'depreciation') {
+    const summary = (data.summary ?? {}) as Record<string, unknown>;
+    const byCategory = data.byCategory as Record<string, { count: number; purchaseValue: number; currentValue: number; depreciation: number }> | undefined;
+
+    return (
+      <View>
+        {summary.totalDevices != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Devices</ThemedText>
+            <ThemedText style={styles.resultValue}>{displayValue(summary.totalDevices)}</ThemedText>
+          </View>
+        )}
+        {summary.totalPurchaseValue != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Purchase Value</ThemedText>
+            <ThemedText style={styles.resultValue}>${Number(summary.totalPurchaseValue).toLocaleString()}</ThemedText>
+          </View>
+        )}
+        {summary.totalCurrentValue != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Current Value</ThemedText>
+            <ThemedText style={styles.resultValue}>${Number(summary.totalCurrentValue).toLocaleString()}</ThemedText>
+          </View>
+        )}
+        {summary.totalDepreciation != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Total Depreciation</ThemedText>
+            <ThemedText style={styles.resultValue}>${Number(summary.totalDepreciation).toLocaleString()}</ThemedText>
+          </View>
+        )}
+        {summary.averageDepreciation != null && (
+          <View style={styles.resultRow}>
+            <ThemedText style={styles.resultLabel}>Average Depreciation</ThemedText>
+            <ThemedText style={styles.resultValue}>{String(summary.averageDepreciation)}%</ThemedText>
+          </View>
+        )}
+        {byCategory && Object.keys(byCategory).length > 0 && (
+          <>
+            <ThemedText style={styles.resultSubtitle}>By Category</ThemedText>
+            {Object.entries(byCategory).map(([name, info]) => (
+              <View key={name} style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>{name} ({info.count})</ThemedText>
+                <ThemedText style={styles.resultValue}>${Number(info.depreciation).toLocaleString()}</ThemedText>
+              </View>
+            ))}
+          </>
+        )}
+      </View>
+    );
+  }
+
+  // ── Fallback: render only scalar values ──
+  const scalarEntries = Object.entries(data).filter(
+    ([, v]) => v == null || typeof v !== 'object',
+  );
+  if (scalarEntries.length === 0) {
+    return <ThemedText style={styles.emptyText}>No data available for this report</ThemedText>;
+  }
   return (
     <View>
-      {entries.map(([label, value]) => (
+      {scalarEntries.map(([label, value]) => (
         <View key={label} style={styles.resultRow}>
-          <ThemedText style={styles.resultLabel}>{label.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</ThemedText>
-          <ThemedText style={styles.resultValue}>
-            {typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}
+          <ThemedText style={styles.resultLabel}>
+            {label.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}
           </ThemedText>
+          <ThemedText style={styles.resultValue}>{displayValue(value)}</ThemedText>
         </View>
       ))}
     </View>
@@ -235,7 +450,7 @@ const styles = StyleSheet.create({
   quickExport: { borderRadius: 16, padding: 18, flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   qeContent: { flex: 1 },
   qeTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  qeDesc: { fontSize: 12, color: '#93C5FD', marginTop: 2 },
+  qeDesc: { fontSize: 12, color: '#C4A8E0', marginTop: 2 },
   qeButtons: { flexDirection: 'row', gap: 8 },
   qeBtn: {
     paddingHorizontal: 16, paddingVertical: 8,
