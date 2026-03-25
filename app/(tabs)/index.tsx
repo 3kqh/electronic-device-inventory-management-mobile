@@ -12,7 +12,7 @@ import type { Device, DeviceCategory, DeviceStatus, MaintenanceRecord, Paginated
 import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 function formatNumber(n: number): string {
   return n >= 1000 ? n.toLocaleString() : String(n);
@@ -26,7 +26,7 @@ function getCategoryName(device: Device): string {
 }
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const {
     data: devicesResponse,
@@ -87,7 +87,7 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <GradientHeader title="Dashboard" subtitle={subtitle}>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerBtn} accessibilityLabel="Notifications">
+          {/* <TouchableOpacity style={styles.headerBtn} accessibilityLabel="Notifications">
             <Ionicons name="notifications-outline" size={20} color="#fff" />
             {alerts.length > 0 && (
               <View style={styles.badge}>
@@ -97,6 +97,16 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn} accessibilityLabel="Scan barcode">
             <Ionicons name="scan-outline" size={20} color="#fff" />
+          </TouchableOpacity> */}
+          <TouchableOpacity
+            style={styles.headerBtn}
+            accessibilityLabel="Logout"
+            onPress={() => Alert.alert('Log out', 'Are you sure to log out?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Logout', style: 'destructive', onPress: () => logout() },
+            ])}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </GradientHeader>
@@ -199,7 +209,7 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AppColors.bg.primary },
-  headerActions: { flexDirection: 'row', gap: 10, position: 'absolute', right: 20, top: 0 },
+  headerActions: { flexDirection: 'row', gap: 10, position: 'absolute', right: 20, top: 50 },
   headerBtn: {
     width: 40, height: 40, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.15)',
