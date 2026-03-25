@@ -9,7 +9,7 @@ import { isNetworkError, NETWORK_ERROR_MESSAGE } from '@/utils/networkError';
 import { canAccessAdmin } from '@/utils/permissions';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const MENU_ITEMS: { icon: keyof typeof Ionicons.glyphMap; title: string; desc: string; route: string; badge?: string }[] = [
   { icon: 'people-outline' as const, title: 'User Management', desc: 'Manage users & roles', route: '/user-management' as const },
@@ -30,7 +30,7 @@ const RECENT_AUDIT = [
 ];
 
 export default function AdminScreen() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   // Permission check: staff cannot access admin features
   if (!user || !canAccessAdmin(user.role)) {
@@ -49,6 +49,13 @@ export default function AdminScreen() {
       </View>
     );
   }
+
+  const handleLogout = () => {
+    Alert.alert('Log out', 'Are you sure to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Log out', style: 'destructive', onPress: () => logout() },
+    ]);
+  };
 
   // Fetch real user count for admin/inventory_manager
   const { data: users, loading: usersLoading, error: usersError, refetch: refetchUsers } = useApiData(() => userService.getAll());
@@ -118,6 +125,12 @@ export default function AdminScreen() {
             <ThemedText style={styles.auditTime}>{a.time}</ThemedText>
           </View>
         ))}
+
+        {/* Logout */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.7}>
+          <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+          <ThemedText style={styles.logoutText}>Log out</ThemedText>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -172,7 +185,13 @@ const styles = StyleSheet.create({
   auditAction: { fontSize: 14, fontWeight: '500', color: AppColors.text.primary },
   auditMeta: { fontSize: 12, color: AppColors.text.secondary, marginTop: 1 },
   auditTime: { fontSize: 11, color: AppColors.text.light },
-  // Permission denied styles
+  // Logout
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginTop: 24, paddingVertical: 16, borderRadius: 14,
+    backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FECACA',
+  },
+  logoutText: { fontSize: 16, fontWeight: '700', color: '#DC2626' },
   deniedContainer: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 40,
